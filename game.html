@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ski Resort Matching Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background: #f0f8ff;
+            margin: 0;
+            padding: 0;
+        }
+        h1 {
+            color: #333;
+            margin-top: 10px;
+        }
+        p.description {
+            font-size: 16px;
+            color: #555;
+            margin: 10px 0 10px;
+        }
+        #timer {
+            font-size: 18px;
+            font-weight: bold;
+            color: #444;
+            margin-bottom: 20px;
+        }
+        nav {
+            margin: 10px 0;
+        }
+        nav a {
+            text-decoration: none;
+            color: #007BFF;
+            margin: 0 10px;
+            font-size: 16px;
+        }
+        nav a:hover {
+            text-decoration: underline;
+        }
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(4, 100px);
+            grid-gap: 10px;
+            justify-content: center;
+            margin: 20px auto;
+        }
+        .tile {
+            width: 100px;
+            height: 100px;
+            background-color: #7ca6c4;
+            color: white;
+            font-size: 14px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+        .tile.flipped {
+            background-color: #ffcccb;
+        }
+        .tile.matched {
+            background-color: #87e1a7;
+            cursor: default;
+        }
+        #reset {
+            margin: 20px auto;
+            padding: 10px 20px;
+            background-color: #333;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        #celebration {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.5s, visibility 0.5s;
+        }
+        #celebration.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        #celebration h2 {
+            font-size: 36px;
+            margin-bottom: 20px;
+        }
+        #celebration p {
+            font-size: 18px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Ski Resort Matching Game</h1>
+    <nav>
+        <a href="scratch.html">Home</a>
+        <a href="index.html">Resume</a>
+    </nav>
+    <p class="description">Match the ski resort to the state where it's located!</p>
+    <p id="timer">Time: 0s</p>
+    <div class="game-board" id="game-board"></div>
+    <button id="reset">Reset Game</button>
+    <div id="celebration">
+        <h2>Congratulations!</h2>
+        <p>You’ve matched all the ski resorts!</p>
+        <button onclick="hideCelebration()">Play Again</button>
+    </div>
+
+    <script>
+        const allResorts = [
+            { name: 'Sun Valley', state: 'Idaho' },
+            { name: 'Aspen Snowmass', state: 'Colorado' },
+            { name: 'Park City', state: 'Utah' },
+            { name: 'Lake Tahoe', state: 'California' },
+            { name: 'Jackson Hole', state: 'Wyoming' },
+            { name: 'Big Sky', state: 'Montana' },
+            { name: 'Killington', state: 'Vermont' },
+            { name: 'Breckenridge', state: 'Colorado' },
+            { name: 'Mammoth Mountain', state: 'California' },
+            { name: 'Steamboat', state: 'Colorado' },
+            { name: 'Snowbird', state: 'Utah' },
+            { name: 'Vail', state: 'Colorado' },
+            { name: 'Sugarloaf', state: 'Maine' },
+            { name: 'Taos Ski Valley', state: 'New Mexico' },
+            { name: 'Whiteface Mountain', state: 'New York' },
+            { name: 'Mount Bachelor', state: 'Oregon' },
+            { name: 'Loon Mountain', state: 'New Hampshire' },
+            { name: 'Crystal Mountain', state: 'Washington' },
+            { name: 'Sierra-at-Tahoe', state: 'California' },
+            { name: 'Heavenly', state: 'California' },
+            { name: 'Copper Mountain', state: 'Colorado' },
+            { name: 'Arapahoe Basin', state: 'Colorado' },
+            { name: 'Beaver Creek', state: 'Colorado' },
+            { name: 'Northstar', state: 'California' },
+            { name: 'Keystone', state: 'Colorado' },
+            { name: 'Snowshoe', state: 'West Virginia' },
+            { name: 'Okemo', state: 'Vermont' },
+            { name: 'Jay Peak', state: 'Vermont' },
+            { name: 'Mt. Hood Meadows', state: 'Oregon' },
+            { name: 'Eldora Mountain', state: 'Colorado' },
+            { name: 'Powder Mountain', state: 'Utah' },
+            { name: 'Crested Butte', state: 'Colorado' },
+        ];
+
+        const gameBoard = document.getElementById('game-board');
+        const resetButton = document.getElementById('reset');
+        const celebration = document.getElementById('celebration');
+        const timerDisplay = document.getElementById('timer');
+
+        let tiles = [];
+        let flippedTiles = [];
+        let matchedPairs = 0;
+        let startTime = null;
+        let timerInterval = null;
+        let timerStarted = false;
+
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        function createBoard() {
+            const selectedResorts = allResorts.sort(() => 0.5 - Math.random()).slice(0, 8);
+            const tilesData = [];
+            selectedResorts.forEach(resort => {
+                tilesData.push(resort.name, resort.state);
+            });
+            shuffle(tilesData);
+
+            tilesData.forEach(text => {
+                const tile = document.createElement('div');
+                tile.classList.add('tile');
+                tile.dataset.value = text;
+                tile.addEventListener('click', flipTile);
+                gameBoard.appendChild(tile);
+                tiles.push(tile);
+            });
+        }
+
+        function flipTile() {
+            if (this.classList.contains('flipped') || this.classList.contains('matched') || flippedTiles.length === 2) return;
+
+            if (!timerStarted) {
+                timerStarted = true;
+                startTime = Date.now();
+                timerInterval = setInterval(updateTimer, 1000);
+            }
+
+            this.textContent = this.dataset.value;
+            this.classList.add('flipped');
+            flippedTiles.push(this);
+
+            if (flippedTiles.length === 2) {
+                checkMatch();
+            }
+        }
+
+        function checkMatch() {
+            const [tile1, tile2] = flippedTiles;
+            const pair = allResorts.find(resort =>
+                (tile1.dataset.value === resort.name && tile2.dataset.value === resort.state) ||
+                (tile1.dataset.value === resort.state && tile2.dataset.value === resort.name)
+            );
+
+            if (pair) {
+                tile1.classList.add('matched');
+                tile2.classList.add('matched');
+                matchedPairs++;
+                if (matchedPairs === 8) {
+                    showCelebration();
+                }
+            } else {
+                setTimeout(() => {
+                    tile1.textContent = '';
+                    tile2.textContent = '';
+                    tile1.classList.remove('flipped');
+                    tile2.classList.remove('flipped');
+                }, 1000);
+            }
+            flippedTiles = [];
+        }
+
+        function resetGame() {
+            clearInterval(timerInterval);
+            timerDisplay.textContent = 'Time: 0s';
+            startTime = null;
+            timerStarted = false;
+
+            tiles.forEach(tile => tile.remove());
+            tiles = [];
+            flippedTiles = [];
+            matchedPairs = 0;
+            hideCelebration();
+            createBoard();
+        }
+
+        function updateTimer() {
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            timerDisplay.textContent = `Time: ${elapsed}s`;
+        }
+
+        function showCelebration() {
+            clearInterval(timerInterval);
+            celebration.classList.add('show');
+        }
+
+        function hideCelebration() {
+            celebration.classList.remove('show');
+        }
+
+        resetButton.addEventListener('click', resetGame);
+
+        createBoard();
+    </script>
+</body>
+</html>
